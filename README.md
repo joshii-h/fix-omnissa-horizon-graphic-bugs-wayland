@@ -204,4 +204,4 @@ See `configs/horizon-preferences.example` for a full recommended configuration.
 
 ## License
 
-[MIT](LICENSE)
+[GPL-3.0-or-later](LICENSE)
