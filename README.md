@@ -88,10 +88,12 @@ The Horizon Client uses **hardcoded Pango markup colors** designed for light bac
 
 Add `export GTK_THEME=Adwaita` to the launcher script `/usr/bin/horizon-client`, forcing the light Adwaita theme for the client only (your desktop stays dark):
 
-**Manual fix:**
+**Manual fix:** Add these two lines to `/usr/bin/horizon-client`, right after `export GDK_BACKEND=x11`:
 
 ```bash
-sudo sed -i '/export GDK_BACKEND=x11/a\\n# Force light GTK theme - Horizon'\''s hardcoded Pango markup colors assume\n# a light background. Dark themes cause white-on-white text.\nexport GTK_THEME=Adwaita' /usr/bin/horizon-client
+# Force light GTK theme - Horizon's hardcoded Pango markup colors assume
+# a light background. Dark themes cause white-on-white text.
+export GTK_THEME=Adwaita
 ```
 
 **Or apply the patch:**
@@ -132,7 +134,11 @@ chmod +x Omnissa-Horizon-Client-*.bundle
 sudo env TERM=dumb VMWARE_EULAS_AGREED=yes ./Omnissa-Horizon-Client-*.bundle --console --required
 ```
 
-3. Extract the PCoIP tarball into the client library directory.
+3. Extract the PCoIP tarball into the client library directory:
+
+```bash
+sudo tar xzf Omnissa-Horizon-PCoIP-*.tar.gz -C /usr/lib/omnissa/horizon/
+```
 
 4. If `libclientSdkCPrimitive.so` is not found at runtime, create a symlink:
 
@@ -201,6 +207,8 @@ See `configs/horizon-preferences.example` for a full recommended configuration.
 - [Debian Bug #1120988](http://www.mail-archive.com/debian-x@lists.debian.org/msg146932.html)
 - [AUR: libx11-mr293](https://aur.archlinux.org/packages/libx11-mr293)
 - [AUR: omnissa-horizon-client](https://aur.archlinux.org/packages/omnissa-horizon-client)
+
+---
 
 ## License
 
