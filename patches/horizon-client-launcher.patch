@@ -1,0 +1,12 @@
+--- a/usr/bin/horizon-client
++++ b/usr/bin/horizon-client
+@@ -25,6 +25,9 @@
+ # Force X11 backend under Wayland (Horizon has no native Wayland support)
+ export GDK_BACKEND=x11
+
++# Force light GTK theme - Horizon's hardcoded Pango markup colors assume
++# a light background. Dark themes cause white-on-white text.
++export GTK_THEME=Adwaita
+
+ LIBDIR="/usr/lib/omnissa"
+ export LD_LIBRARY_PATH="${LIBDIR}:${LIBDIR}/gcc:${LD_LIBRARY_PATH}"

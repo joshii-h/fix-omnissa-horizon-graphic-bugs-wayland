@@ -1,0 +1,26 @@
+# Omnissa Horizon Client preferences
+# Location: ~/.omnissa/horizon-preferences
+#
+# Recommended settings for Horizon Client 2512 on Linux.
+# Adjust defaultBroker and deviceID to match your environment.
+
+view.allowBlastProxy = 'FALSE'
+view.allowBlastToast = 'TRUE'
+view.autoHideToolbar = 'FALSE'
+view.defaultBroker = 'vdi.example.com'
+view.disableTLSv13 = 'FALSE'
+view.enableAV1 = 'TRUE'
+view.enableBlastCodec = 'TRUE'
+view.enableH264 = 'TRUE'
+view.enableH264YUV444 = 'TRUE'
+view.enableHEVC = 'TRUE'
+view.enableHEVCYUV444 = 'TRUE'
+view.protocolConnectionCertCheckMode = '1'
+view.singleAutoConnect = 'FALSE'
+view.sslCipherString = '!aNULL:kECDH+AESGCM:ECDH+AESGCM:RSA+AESGCM:kECDH+AES:ECDH+AES:RSA+AES'
+view.sslCipherSuites = 'TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256'
+view.sslProtocolString = 'TLSv1.2'
+view.sslVerificationMode = '2'
+
+# Disable CEIP telemetry (Customer Experience Improvement Program)
+view.enableDataSharing = 'FALSE'
