@@ -1,12 +1,33 @@
+Gentoo/Arch launcher patch for Omnissa Horizon Client 2512.
+Applies to /usr/bin/horizon-client as shipped by the 2512 bundle installer.
+
+Contains three independent fixes (see README for details):
+  - Fix 2a: Dark theme (GTK_THEME=Adwaita)
+  - Fix 2b: HiDPI scaling (GDK_SCALE=2) -- remove if not on HiDPI displays
+  - Fix 2c: Wayland warning suppression (XDG_SESSION_TYPE, bwrap)
+
+Apply with: sudo patch -p1 -d / < patches/horizon-client-launcher.patch
+
 --- a/usr/bin/horizon-client
 +++ b/usr/bin/horizon-client
-@@ -25,6 +25,9 @@
+@@ -25,6 +25,21 @@
  # Force X11 backend under Wayland (Horizon has no native Wayland support)
  export GDK_BACKEND=x11
 
-+# Force light GTK theme - Horizon's hardcoded Pango markup colors assume
-+# a light background. Dark themes cause white-on-white text.
++# [Fix 2b] Scale UI for HiDPI displays. GTK3 under XWayland only supports
++# integer scaling. GDK_SCALE=2 doubles all UI elements -- slightly large but
++# readable. Remove or set to 1 if you do not have a HiDPI display.
++export GDK_SCALE=2
++
++# [Fix 2a] Force light GTK theme - Horizon's hardcoded Pango markup colors
++# assume a light background. Dark themes cause white-on-white text.
++# Remove if you are already using a light GTK theme.
 +export GTK_THEME=Adwaita
-
++
++# [Fix 2c] Tell Horizon Client we are on X11. The client also checks env vars
++# for Wayland detection (in addition to the systemd session file, see below).
++export XDG_SESSION_TYPE=x11
++unset WAYLAND_DISPLAY
++
  LIBDIR="/usr/lib/omnissa"
  export LD_LIBRARY_PATH="${LIBDIR}:${LIBDIR}/gcc:${LD_LIBRARY_PATH}"

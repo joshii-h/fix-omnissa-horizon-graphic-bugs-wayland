@@ -1,16 +1,16 @@
 # Fix Omnissa Horizon Client Graphical Bugs on Wayland
 
-Omnissa Horizon Client **2512** (8.17.0) on Linux has multiple graphical bugs when running under **Wayland** (via XWayland), particularly on rolling-release distributions like **Gentoo** and **Arch Linux**. This repository documents all known issues and provides ready-to-use patches.
+Omnissa Horizon Client **2412/2512** on Linux has multiple graphical bugs when running under **Wayland** (via XWayland). This repository documents all known issues and provides ready-to-use patches for **Fedora**, **Gentoo**, and **Arch Linux**.
 
-## Table of Contents
+## Quick Reference
 
-- [Bug 1: Client Crashes After Connecting (libX11 XKB Bug)](#bug-1-client-crashes-after-connecting-libx11-xkb-bug)
-- [Bug 2: White Text on White Background (Dark Theme)](#bug-2-white-text-on-white-background-dark-theme)
-- [Bug 3: Missing Libraries (gtkmm, libclientSdkCPrimitive)](#bug-3-missing-libraries-gtkmm-libclientsdkcprimitive)
-- [Installation Guide (Gentoo)](#installation-guide-gentoo)
-- [Disable Telemetry](#disable-telemetry)
-- [Known Limitations](#known-limitations)
-- [References](#references)
+| Fix | Issue | Applies to you if... | Patch label |
+|---|---|---|---|
+| [Bug 1](#bug-1-client-crashes-after-connecting-libx11-xkb-bug) | XKB crash | libxkbcommon >= 1.12 **and** libX11 < 1.8.13 | separate libX11 patch |
+| [Fix 2a](#fix-2a-dark-theme) | White-on-white text | You use a **dark GTK theme** (Breeze Dark, Adwaita Dark, etc.) | `GTK_THEME=Adwaita` |
+| [Fix 2b](#fix-2b-hidpi-scaling) | UI too small | You have a **HiDPI display** (4K, Retina, scaling > 1x) | `GDK_SCALE=2` |
+| [Fix 2c](#fix-2c-wayland-warning-dialog) | "Protocol not supported" dialog | You run a **Wayland session** (KDE Plasma Wayland, GNOME Wayland, etc.) | `XDG_SESSION_TYPE` + bwrap |
+| [Bug 3](#bug-3-missing-libraries-gtkmm-libclientsdkcprimitive) | Missing PCoIP libs | PCoIP tarball **not installed** alongside the main bundle | manual install step |
 
 ---
 
@@ -18,37 +18,37 @@ Omnissa Horizon Client **2512** (8.17.0) on Linux has multiple graphical bugs wh
 
 **Severity:** Critical -- client is completely unusable without this fix.
 
+**Applies to you if:** Your system has **libxkbcommon >= 1.12** and **libX11 < 1.8.13**.
+
+**Does NOT apply if:** libxkbcommon < 1.12 (bug not triggered) or libX11 >= 1.8.13 (fix already included upstream).
+
+```bash
+# Check your versions
+rpm -q libX11 libxkbcommon        # Fedora
+qlist -Iv x11-libs/libX11 x11-libs/libxkbcommon  # Gentoo
+pacman -Q libx11 libxkbcommon     # Arch
+```
+
 ### Symptoms
 
 - Client crashes/closes immediately when the VDI session window receives mouse focus
 - Crashes when mousing over the toolbar
-- Segfault at the protocol binary (`horizon-protocol`)
-- X Window System errors in terminal output:
-
-```
-The program 'horizon-client' received an X Window System error.
-This probably reflects a bug in the program.
-The error was 'BadValue (integer parameter out of range for operation)'
-...related to the XKEYBOARD extension.
-```
-
-- GTK assertion warnings before the crash:
-
-```
-gtk_window_present_with_time: assertion 'GTK_IS_WINDOW (window)' failed
-g_source_remove: assertion 'tag > 0' failed
-g_object_ref: assertion 'G_IS_OBJECT (object)' failed
-```
+- Segfault at `horizon-protocol`
+- X errors: `BadValue ... related to the XKEYBOARD extension`
 
 ### Root Cause
 
-When **libxkbcommon >= 1.12** sends an `XkbNewKeyboardNotify` event for a device that libX11 hasn't loaded a keymap for yet, libX11 dereferences a NULL pointer in `XKBBind.c` and `XKBUse.c`. This is a race condition between libxkbcommon and libX11 that affects any XKB-aware application running under XWayland.
+When libxkbcommon >= 1.12 sends an `XkbNewKeyboardNotify` event for a device that libX11 hasn't loaded a keymap for yet, libX11 dereferences a NULL pointer. Fixed upstream in [libX11 1.8.13](https://gitlab.freedesktop.org/xorg/lib/libx11/-/merge_requests/293).
 
-The fix is upstream in [libX11 merge request #293](https://gitlab.freedesktop.org/xorg/lib/libx11/-/merge_requests/293).
+### Affected Distributions
 
-### Fix: Gentoo (User Patches)
+| Distribution | libxkbcommon | libX11 | Status |
+|---|---|---|---|
+| Gentoo (rolling) | >= 1.12 | < 1.8.13 | **Affected** -- apply patch below |
+| Arch Linux (rolling) | >= 1.12 | >= 1.8.13 | **Fixed** in repos since Feb 2026 |
+| Fedora 43 | 1.11.0 | 1.8.12 | **Not yet affected** -- monitor after updates |
 
-Copy the patch into Gentoo's user patches directory. It will be applied automatically the next time `x11-libs/libX11` is rebuilt:
+### Fix: Gentoo
 
 ```bash
 sudo mkdir -p /etc/portage/patches/x11-libs/libX11
@@ -56,91 +56,98 @@ sudo cp patches/libx11-mr293-fix-xkb-crash.patch /etc/portage/patches/x11-libs/l
 sudo emerge -1 x11-libs/libX11
 ```
 
-### Fix: Arch Linux (AUR)
+### Fix: Arch Linux
 
-Install the patched libX11 from the AUR:
+libX11 >= 1.8.13 is in the repos since February 2026. Update with `pacman -Syu`.
 
-```bash
-yay -S libx11-mr293
-```
-
-See: [AUR: libx11-mr293](https://aur.archlinux.org/packages/libx11-mr293)
+If still on an older version: `yay -S libx11-mr293` ([AUR](https://aur.archlinux.org/packages/libx11-mr293))
 
 ### Workaround
 
-Switching to a US keyboard layout can sometimes mitigate the crash if you are using a non-US layout, since the bug is triggered by XKB keyboard mapping changes. This is not a reliable fix.
+Switching to a US keyboard layout can sometimes mitigate the crash. Not a reliable fix.
 
 ---
 
-## Bug 2: White Text on White Background (Dark Theme)
+## Bug 2: Launcher Script Fixes (Dark Theme / HiDPI / Wayland Warning)
 
-### Symptoms
+The launcher script `/usr/bin/horizon-client` needs several environment variable additions depending on your setup. The patches in this repo bundle all three fixes with clear labels. **After patching, edit the file and remove any fixes that do not apply to you.**
 
-- All text in the Horizon Client UI is invisible (white on white)
-- Buttons and menu items appear blank
-- Occurs when using a dark GTK theme (e.g., KDE Plasma with Breeze Dark)
+> **Note:** These patches are overwritten on every Horizon Client update. Re-apply after updating.
 
-### Root Cause
+### Fix 2a: Dark Theme
 
-The Horizon Client uses **hardcoded Pango markup colors** designed for light backgrounds. When a dark GTK theme is active (e.g., `gtk-application-prefer-dark-theme=true` in `~/.config/gtk-3.0/settings.ini`), the background becomes dark but the hardcoded text colors remain light/white, making text invisible.
+**Applies to you if:** You use a **dark GTK theme** (KDE Breeze Dark, GNOME Adwaita Dark, any theme with `gtk-application-prefer-dark-theme=true`).
 
-### Fix
+**Does NOT apply if:** You use a light GTK theme.
 
-Add `export GTK_THEME=Adwaita` to the launcher script `/usr/bin/horizon-client`, forcing the light Adwaita theme for the client only (your desktop stays dark):
+**What it does:** Sets `GTK_THEME=Adwaita` to force the light Adwaita theme for the Horizon Client only. Your desktop stays dark.
 
-**Manual fix:** Add these two lines to `/usr/bin/horizon-client`, right after `export GDK_BACKEND=x11`:
+**Why:** Horizon Client uses hardcoded Pango markup colors designed for light backgrounds. With a dark theme, all text becomes white-on-white (invisible).
+
+### Fix 2b: HiDPI Scaling
+
+**Applies to you if:** You have a **HiDPI/4K display** and the client UI appears tiny/unreadable.
+
+**Does NOT apply if:** You use standard-DPI displays (1080p, 1440p at 100% scaling) where the client looks fine.
+
+**What it does:** Sets `GDK_SCALE=2` to double all UI elements.
+
+**Why:** GTK3 under XWayland does not support fractional scaling. The only options are 1x (too small on HiDPI) or 2x (slightly large but readable). There is no in-between.
+
+**To disable:** Remove or comment out the `export GDK_SCALE=2` line after applying the patch.
+
+### Fix 2c: Wayland Warning Dialog
+
+**Applies to you if:** You run a **Wayland session** and get the dialog: *"The display server protocol that you are using is not supported."*
+
+**Does NOT apply if:** You run an **X11 session** (`echo $XDG_SESSION_TYPE` shows `x11`).
+
+**What it does:** Two-stage suppression:
+1. Sets `XDG_SESSION_TYPE=x11` and unsets `WAYLAND_DISPLAY` (env var level)
+2. Uses [bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`) to present a modified systemd login session file to the client binary, because **the client reads `/run/systemd/sessions/<id>` directly** and ignores environment variables
+
+**Requires:** `bubblewrap` package (already installed if you use Flatpak). Falls back gracefully if not available -- the warning dialog appears but the client still works.
+
+### Applying the Patches
 
 ```bash
-# Force light GTK theme - Horizon's hardcoded Pango markup colors assume
-# a light background. Dark themes cause white-on-white text.
-export GTK_THEME=Adwaita
-```
+# Fedora (Horizon Client 2412 launcher format)
+sudo patch -p1 -d / < patches/horizon-client-launcher-fedora.patch
 
-**Or apply the patch:**
-
-```bash
+# Gentoo / Arch Linux (Horizon Client 2512 launcher format)
 sudo patch -p1 -d / < patches/horizon-client-launcher.patch
 ```
 
-> **Note:** This patch will need to be re-applied after every Horizon Client update, since the installer overwrites `/usr/bin/horizon-client`.
+After patching, review `/usr/bin/horizon-client` and remove any fixes that do not apply to your setup (each fix is marked with `[Fix 2a]`, `[Fix 2b]`, or `[Fix 2c]`).
 
 ---
 
 ## Bug 3: Missing Libraries (gtkmm, libclientSdkCPrimitive)
 
-### Symptoms
+**Applies to you if:** The client fails to start with errors about missing `libgtkmm-3.0.so.1` or `libclientSdkCPrimitive.so`.
 
-- Client fails to start with errors about missing `libgtkmm-3.0.so.1`, `libatkmm-1.6.so.1`, or similar gtkmm libraries
-- Errors referencing `libclientSdkCPrimitive.so` (error 4 -- unmapped memory)
-- PCoIP protocol fails to initialize
-
-### Root Cause
-
-The Horizon Client consists of **two separate tarballs**:
-
-1. **Main client bundle** (`Omnissa-Horizon-Client-*.bundle`) -- the client UI
-2. **PCoIP tarball** -- contains additional protocol libraries including gtkmm bindings and `libclientSdkCPrimitive.so`
-
-If only the main bundle is installed, the PCoIP libraries are missing.
+**Does NOT apply if:** The client starts without library errors.
 
 ### Fix
 
-1. Download **both** the main client bundle and the PCoIP tarball from the [Omnissa download page](https://customerconnect.omnissa.com/downloads/info/slug/desktop_end_user_computing/omnissa_horizon_client_for_linux/2512).
+The Horizon Client consists of two separate downloads. If only the main bundle is installed, PCoIP libraries are missing.
 
-2. Install the main bundle first:
+1. Download **both** the main client bundle and the PCoIP tarball from [Omnissa](https://customerconnect.omnissa.com/downloads/info/slug/desktop_end_user_computing/omnissa_horizon_client_for_linux/2512).
+
+2. Install the main bundle:
 
 ```bash
 chmod +x Omnissa-Horizon-Client-*.bundle
 sudo env TERM=dumb VMWARE_EULAS_AGREED=yes ./Omnissa-Horizon-Client-*.bundle --console --required
 ```
 
-3. Extract the PCoIP tarball into the client library directory:
+3. Extract PCoIP libraries:
 
 ```bash
 sudo tar xzf Omnissa-Horizon-PCoIP-*.tar.gz -C /usr/lib/omnissa/horizon/
 ```
 
-4. If `libclientSdkCPrimitive.so` is not found at runtime, create a symlink:
+4. If needed, create symlink:
 
 ```bash
 sudo ln -sf /usr/lib/omnissa/horizon/lib/libclientSdkCPrimitive.so /usr/lib/libclientSdkCPrimitive.so
@@ -148,37 +155,50 @@ sudo ln -sf /usr/lib/omnissa/horizon/lib/libclientSdkCPrimitive.so /usr/lib/libc
 
 ---
 
-## Installation Guide (Gentoo)
+## Full Installation Guide
 
-There is no official Portage ebuild for Omnissa Horizon Client. Install from the tarball:
+### Fedora
 
 ```bash
-# 1. Download the bundle from Omnissa
-# 2. Make it executable
+# 1. Install the Horizon Client bundle
 chmod +x Omnissa-Horizon-Client-*.bundle
-
-# 3. Install (non-interactive)
 sudo env TERM=dumb VMWARE_EULAS_AGREED=yes ./Omnissa-Horizon-Client-*.bundle --console --required
 
-# 4. Apply the libX11 XKB crash fix
+# 2. Apply launcher fixes (then edit to remove fixes you don't need)
+sudo patch -p1 -d / < patches/horizon-client-launcher-fedora.patch
+
+# 3. (Optional) Disable telemetry
+mkdir -p ~/.omnissa
+cp configs/horizon-preferences.example ~/.omnissa/horizon-preferences
+```
+
+Bug 1 (XKB crash) is not yet triggered on Fedora 43 (libxkbcommon 1.11.0 < 1.12). Monitor after system updates.
+
+### Gentoo
+
+```bash
+# 1. Install the Horizon Client bundle
+chmod +x Omnissa-Horizon-Client-*.bundle
+sudo env TERM=dumb VMWARE_EULAS_AGREED=yes ./Omnissa-Horizon-Client-*.bundle --console --required
+
+# 2. Apply libX11 XKB crash fix (Bug 1) if affected
 sudo mkdir -p /etc/portage/patches/x11-libs/libX11
 sudo cp patches/libx11-mr293-fix-xkb-crash.patch /etc/portage/patches/x11-libs/libX11/
 sudo emerge -1 x11-libs/libX11
 
-# 5. Apply the GTK theme fix
+# 3. Apply launcher fixes (then edit to remove fixes you don't need)
 sudo patch -p1 -d / < patches/horizon-client-launcher.patch
 
-# 6. (Optional) Disable telemetry
+# 4. (Optional) Disable telemetry
 mkdir -p ~/.omnissa
 cp configs/horizon-preferences.example ~/.omnissa/horizon-preferences
-# Edit to set your broker URL and preferences
 ```
 
 ---
 
 ## Disable Telemetry
 
-Omnissa Horizon Client has a **Customer Experience Improvement Program (CEIP)** that sends usage data. To disable it, set the following in `~/.omnissa/horizon-preferences`:
+Set the following in `~/.omnissa/horizon-preferences`:
 
 ```
 view.enableDataSharing = 'FALSE'
@@ -190,13 +210,13 @@ See `configs/horizon-preferences.example` for a full recommended configuration.
 
 ## Known Limitations
 
-- **No native Wayland support** -- Horizon Client runs under XWayland (`GDK_BACKEND=x11`). Omnissa has not implemented native Wayland support yet. You will see this warning on startup:
+- **No native Wayland support** -- Horizon Client runs under XWayland (`GDK_BACKEND=x11`). Omnissa has not implemented native Wayland support.
 
-  > "The display server protocol you are using is not supported. It is recommended to connect with the x11 display server protocol."
+- **No fractional HiDPI scaling** -- GTK3 only supports integer scaling (`GDK_SCALE=1` or `GDK_SCALE=2`). There is no way to set e.g. 1.5x scaling.
 
-- **Multi-monitor flicker** -- Some users report flickering when using multiple monitors under XWayland. This is an XWayland limitation, not specific to Horizon Client.
+- **Multi-monitor flicker** -- Some users report flickering when using multiple monitors under XWayland. This is an XWayland limitation.
 
-- **Launcher patch not persistent** -- The GTK_THEME fix in `/usr/bin/horizon-client` is overwritten on every Horizon Client update. Re-apply the patch after updating.
+- **Launcher patches not persistent** -- The fixes in `/usr/bin/horizon-client` are overwritten on every Horizon Client update. Re-apply the patch after updating.
 
 ---
 

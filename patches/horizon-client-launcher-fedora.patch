@@ -1,0 +1,92 @@
+Fedora launcher patch for Omnissa Horizon Client 2412.
+Applies to /usr/bin/horizon-client as shipped by the 2412 bundle installer.
+
+Contains three independent fixes (see README for details):
+  - Fix 2a: Dark theme (GTK_THEME=Adwaita)
+  - Fix 2b: HiDPI scaling (GDK_SCALE=2) -- remove if not on HiDPI displays
+  - Fix 2c: Wayland warning suppression (XDG_SESSION_TYPE, bwrap)
+
+Apply with: sudo patch -p1 -d / < patches/horizon-client-launcher-fedora.patch
+
+--- a/usr/bin/horizon-client
++++ b/usr/bin/horizon-client
+@@ -40,6 +40,21 @@
+ # We use x11 lib in client, so cannot use wayland now
+ export GDK_BACKEND=x11
+
++# [Fix 2b] Scale UI for HiDPI displays. GTK3 under XWayland only supports
++# integer scaling. GDK_SCALE=2 doubles all UI elements -- slightly large but
++# readable. Remove or set to 1 if you do not have a HiDPI display.
++export GDK_SCALE=2
++
++# [Fix 2a] Force light GTK theme - Horizon's hardcoded Pango markup colors
++# assume a light background. Dark themes cause white-on-white text.
++# Remove if you are already using a light GTK theme.
++export GTK_THEME=Adwaita
++
++# [Fix 2c] Tell Horizon Client we are on X11. The client also checks env vars
++# for Wayland detection (in addition to the systemd session file, see below).
++export XDG_SESSION_TYPE=x11
++unset WAYLAND_DISPLAY
++
+ # Add path to LD_LIBRARY_PATH
+ vm_append_to_library_path() {
+    local ldBasePath
+@@ -114,6 +129,31 @@
+    echo $result
+ }
+
++# [Fix 2c] Detect Wayland session and prepare bwrap override for the systemd
++# session file. The Horizon Client binary reads /run/systemd/sessions/<id>
++# directly to detect the display server protocol, ignoring all env vars.
++# Requires bubblewrap (bwrap). Falls back gracefully if not installed.
++setup_wayland_override() {
++   _bwrap_args=()
++   _bwrap_tmpfile=""
++
++   command -v bwrap &>/dev/null || return 1
++
++   local session_id
++   session_id=$(loginctl --no-legend 2>/dev/null | awk '/seat0/ {print $1; exit}')
++   [[ -z "$session_id" ]] && return 1
++
++   local session_file="/run/systemd/sessions/$session_id"
++   [[ -f "$session_file" ]] || return 1
++   grep -q "^TYPE=wayland$" "$session_file" 2>/dev/null || return 1
++
++   _bwrap_tmpfile=$(mktemp /tmp/.horizon-session-XXXXXX)
++   sed -e 's/^TYPE=wayland$/TYPE=x11/' \
++       -e 's/^ORIGINAL_TYPE=wayland$/ORIGINAL_TYPE=x11/' \
++       "$session_file" > "$_bwrap_tmpfile"
++
++   _bwrap_args=(bwrap --dev-bind / / --bind "$_bwrap_tmpfile" "$session_file" --)
++   return 0
++}
+
+ vm_run() {
+    # Check if os cpp standard library is compatible
+@@ -127,18 +167,23 @@
+    # Config tsdr feature
+    vm_folder_redirection_config
+
++   # Set up Wayland session override (populates _bwrap_args if needed)
++   setup_wayland_override
++
+    if [ -e "$binPath/bin/$binFile" ]; then
+       if [ ! $stdin_arg ]; then
+-         "$binPath/bin/$binFile" "$@"
++         "${_bwrap_args[@]}" "$binPath/bin/$binFile" "$@"
+       else
+-         echo $stdin_arg | "$binPath/bin/$binFile" "$@"
++         echo $stdin_arg | "${_bwrap_args[@]}" "$binPath/bin/$binFile" "$@"
+       fi
+    else
+       echo "File not exists:/usr/lib/omnissa/horizon/bin/$binFile"
+       exit 1
+    fi
+
+-   return "$?"
++   local ret=$?
++   [[ -n "$_bwrap_tmpfile" ]] && rm -f "$_bwrap_tmpfile"
++   return $ret
+ }
