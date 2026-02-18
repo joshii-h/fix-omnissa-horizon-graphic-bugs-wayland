@@ -1,10 +1,11 @@
-Fedora launcher patch for Omnissa Horizon Client 2412.
-Applies to /usr/bin/horizon-client as shipped by the 2412 bundle installer.
+Fedora launcher patch for Omnissa Horizon Client 2512.
+Applies to /usr/bin/horizon-client as shipped by the 2512 RPM installer.
 
-Contains three independent fixes (see README for details):
+Contains two independent fixes (see README for details):
   - Fix 2a: Dark theme (GTK_THEME=Adwaita)
-  - Fix 2b: HiDPI scaling (GDK_SCALE=2) -- remove if not on HiDPI displays
   - Fix 2c: Wayland warning suppression (XDG_SESSION_TYPE, bwrap)
+
+HiDPI scaling (GDK_SCALE=2) is commented out by default. Uncomment if needed.
 
 Apply with: sudo patch -p1 -d / < patches/horizon-client-launcher-fedora.patch
 
@@ -16,8 +17,8 @@ Apply with: sudo patch -p1 -d / < patches/horizon-client-launcher-fedora.patch
 
 +# [Fix 2b] Scale UI for HiDPI displays. GTK3 under XWayland only supports
 +# integer scaling. GDK_SCALE=2 doubles all UI elements -- slightly large but
-+# readable. Remove or set to 1 if you do not have a HiDPI display.
-+export GDK_SCALE=2
++# readable. Uncomment if the UI is too small on HiDPI displays.
++# export GDK_SCALE=2
 +
 +# [Fix 2a] Force light GTK theme - Horizon's hardcoded Pango markup colors
 +# assume a light background. Dark themes cause white-on-white text.
@@ -32,7 +33,7 @@ Apply with: sudo patch -p1 -d / < patches/horizon-client-launcher-fedora.patch
  # Add path to LD_LIBRARY_PATH
  vm_append_to_library_path() {
     local ldBasePath
-@@ -114,6 +129,31 @@
+@@ -114,6 +129,33 @@
     echo $result
  }
 
@@ -62,10 +63,11 @@ Apply with: sudo patch -p1 -d / < patches/horizon-client-launcher-fedora.patch
 +   _bwrap_args=(bwrap --dev-bind / / --bind "$_bwrap_tmpfile" "$session_file" --)
 +   return 0
 +}
++
 
  vm_run() {
     # Check if os cpp standard library is compatible
-@@ -127,18 +167,23 @@
+@@ -128,18 +170,23 @@
     # Config tsdr feature
     vm_folder_redirection_config
 
