@@ -14,6 +14,18 @@ Starting with version **2512**, Omnissa ships a second client called **Horizon C
 
 The 2512 installer registers both clients but keeps the classic client as the default. To switch:
 
+#### Gentoo / Arch Linux (bundle installer)
+
+The `.bundle` installer does **not** create a symlink for the Next client binary. Create one manually:
+
+```bash
+sudo ln -sf /usr/lib/omnissa/horizon/bin/horizon-client-next-bundle/horizon-client-next /usr/local/bin/horizon-client-next
+```
+
+> **Note:** On Fedora, the RPM package creates `/usr/bin/horizon-client-next` automatically. This step is only needed for bundle-based installs.
+
+#### All Distributions
+
 ```bash
 # Create local desktop entry overrides
 mkdir -p ~/.local/share/applications
