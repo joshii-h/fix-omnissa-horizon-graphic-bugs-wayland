@@ -60,6 +60,13 @@ EOF
 
 # Update desktop database and register URI handlers
 update-desktop-database ~/.local/share/applications/
+
+# Fedora/Nobara with KDE: xdg-mime calls qtpaths, but Qt6 ships qtpaths6.
+# Create the missing symlink if needed:
+if command -v qtpaths6 &>/dev/null && ! command -v qtpaths &>/dev/null; then
+    sudo ln -s "$(command -v qtpaths6)" /usr/local/bin/qtpaths
+fi
+
 xdg-mime default horizon-client-next.desktop x-scheme-handler/horizon-client x-scheme-handler/vmware-view
 ```
 
